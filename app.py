@@ -108,123 +108,119 @@ if df is not None:
     st.subheader("📄 Data Preview")
     st.dataframe(df.head())
 
-    # --------------------------------------------------
-    # Preprocess & align features
-    # --------------------------------------------------
-    df_processed = preprocess_data(df)
+# --------------------------------------------------
+# Preprocess & align features
+# --------------------------------------------------
+df_processed = preprocess_data(df)
 
-    # Ensure DataFrame
-    if not isinstance(df_processed, pd.DataFrame):
-        df_processed = pd.DataFrame(df_processed)
+# Enforce training feature schema (single source of truth)
+df_processed = df_processed.reindex(
+    columns=feature_columns,
+    fill_value=0
+)
 
-    # Enforce training feature schema (ONLY source of truth)
-    df_processed = df_processed.reindex(
-        columns=feature_columns,
-        fill_value=0
+# --------------------------------------------------
+# Predictions
+# --------------------------------------------------
+preds = model.predict(df_processed)
+probs = model.predict_proba(df_processed)[:, 1]
+
+df["RainTomorrow_Pred"] = preds
+df["Rain_Probability"] = probs
+
+# --------------------------------------------------
+# KPI Summary
+# --------------------------------------------------
+st.subheader("📌 Prediction Summary")
+
+c1, c2, c3 = st.columns(3)
+c1.metric("🌧️ Rain Expected (%)", f"{preds.mean() * 100:.1f}%")
+c2.metric("🎯 Avg Rain Probability", f"{probs.mean():.2f}")
+c3.metric("📁 Records", len(df))
+
+# --------------------------------------------------
+# Confidence Gauge
+# --------------------------------------------------
+st.subheader("🎯 Prediction Confidence")
+
+fig_gauge = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=float(probs.mean()),
+    gauge={"axis": {"range": [0, 1]}},
+    title={"text": "Average Rain Probability"}
+))
+st.plotly_chart(fig_gauge, use_container_width=True)
+
+# --------------------------------------------------
+# Trend
+# --------------------------------------------------
+st.subheader("📈 Rain Probability Trend")
+
+df["Index"] = range(len(df))
+fig_trend = px.line(
+    df,
+    x="Index",
+    y="Rain_Probability",
+    labels={"Rain_Probability": "Probability of Rain"}
+)
+st.plotly_chart(fig_trend, use_container_width=True)
+
+# --------------------------------------------------
+# Australia Map
+# --------------------------------------------------
+if "Location" in df.columns:
+    st.subheader("🗺️ Rainfall Intensity Map (Australia)")
+
+    map_df = (
+        df.groupby("Location", as_index=False)["Rain_Probability"]
+        .mean()
     )
 
-    # --------------------------------------------------
-    # Predictions
-    # --------------------------------------------------
-    preds = model.predict(df_processed)
-    probs = model.predict_proba(df_processed)[:, 1]
-
-    df["RainTomorrow_Pred"] = preds
-    df["Rain_Probability"] = probs
-
-    # --------------------------------------------------
-    # KPI Summary
-    # --------------------------------------------------
-    st.subheader("📌 Prediction Summary")
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("🌧️ Rain Expected (%)", f"{preds.mean() * 100:.1f}%")
-    c2.metric("🎯 Avg Rain Probability", f"{probs.mean():.2f}")
-    c3.metric("📁 Records", len(df))
-
-    # --------------------------------------------------
-    # Confidence Gauge
-    # --------------------------------------------------
-    st.subheader("🎯 Prediction Confidence")
-
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=float(probs.mean()),
-        gauge={"axis": {"range": [0, 1]}},
-        title={"text": "Average Rain Probability"}
-    ))
-    st.plotly_chart(fig_gauge, use_container_width=True)
-
-    # --------------------------------------------------
-    # Trend
-    # --------------------------------------------------
-    st.subheader("📈 Rain Probability Trend")
-
-    df["Index"] = range(len(df))
-    fig_trend = px.line(
-        df,
-        x="Index",
-        y="Rain_Probability",
-        labels={"Rain_Probability": "Probability of Rain"}
+    fig_map = px.scatter_geo(
+        map_df,
+        locations="Location",
+        locationmode="country names",
+        scope="australia",
+        size="Rain_Probability",
+        color="Rain_Probability",
+        color_continuous_scale="Blues"
     )
-    st.plotly_chart(fig_trend, use_container_width=True)
+    st.plotly_chart(fig_map, use_container_width=True)
 
-    # --------------------------------------------------
-    # Australia Map
-    # --------------------------------------------------
-    if "Location" in df.columns:
-        st.subheader("🗺️ Rainfall Intensity Map (Australia)")
+# --------------------------------------------------
+# SHAP Explainability
+# --------------------------------------------------
+st.subheader("🧠 SHAP Explainability")
 
-        map_df = (
-            df.groupby("Location", as_index=False)["Rain_Probability"]
-            .mean()
-        )
+shap_sample = df_processed.sample(
+    n=min(200, len(df_processed)),
+    random_state=42
+)
 
-        fig_map = px.scatter_geo(
-            map_df,
-            locations="Location",
-            locationmode="country names",
-            scope="australia",
-            size="Rain_Probability",
-            color="Rain_Probability",
-            color_continuous_scale="Blues"
-        )
-        st.plotly_chart(fig_map, use_container_width=True)
+if model_choice == "Random Forest":
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(shap_sample)[1]
+else:
+    explainer = shap.LinearExplainer(model, shap_sample)
+    shap_values = explainer.shap_values(shap_sample)
 
-    # --------------------------------------------------
-    # SHAP Explainability
-    # --------------------------------------------------
-    st.subheader("🧠 SHAP Explainability")
+fig, ax = plt.subplots()
+shap.summary_plot(
+    shap_values,
+    shap_sample,
+    plot_type="bar",
+    show=False
+)
+st.pyplot(fig)
 
-    shap_sample = df_processed.sample(
-        n=min(200, len(df_processed)),
-        random_state=42
-    )
+# --------------------------------------------------
+# Download results
+# --------------------------------------------------
+st.subheader("⬇️ Download Predictions")
 
-    if model_choice == "Random Forest":
-        explainer = shap.TreeExplainer(model)
-        shap_values = explainer.shap_values(shap_sample)[1]
-    else:
-        explainer = shap.LinearExplainer(model, shap_sample)
-        shap_values = explainer.shap_values(shap_sample)
-
-    fig, ax = plt.subplots()
-    shap.summary_plot(
-        shap_values,
-        shap_sample,
-        plot_type="bar",
-        show=False
-    )
-    st.pyplot(fig)
-
-    # --------------------------------------------------
-    # Download results
-    # --------------------------------------------------
-    st.subheader("⬇️ Download Predictions")
-
-    st.download_button(
-        "Download CSV",
-        df.to_csv(index=False),
-        file_name="rainfall_predictions.csv",
-        mime="text/csv"
-    )
+st.download_button(
+    "Download CSV",
+    df.to_csv(index=False),
+    file_name="rainfall_predictions.csv",
+    mime="text/csv"
+)
