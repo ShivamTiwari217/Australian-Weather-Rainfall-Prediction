@@ -112,21 +112,17 @@ if df is not None:
 # --------------------------------------------------
 # Preprocess & align features
 # --------------------------------------------------
-
-# df already exists for ALL modes:
-# - sample data
-# - uploaded CSV
-# - manual input
-
+# --------------------------------------------------
+# Preprocess & align features
+# --------------------------------------------------
 df_processed = preprocess_data(df)
 
+# Enforce training feature schema (single source of truth)
 df_processed = df_processed.reindex(
     columns=feature_columns,
     fill_value=0
 )
 
-preds = model.predict(df_processed)
-probs = model.predict_proba(df_processed)[:, 1]
 
 df["RainTomorrow_Pred"] = preds
 df["Rain_Probability"] = probs
