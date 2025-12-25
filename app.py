@@ -109,19 +109,28 @@ if df is not None:
     st.dataframe(df.head())
 
 # --------------------------------------------------
+# --------------------------------------------------
 # Preprocess & align features
 # --------------------------------------------------
-# 1. Convert Streamlit input to DataFrame
-input_df = pd.DataFrame([user_input])
 
-# 2. Preprocess
-df_processed = preprocess_data(input_df)
+# df already exists for ALL modes:
+# - sample data
+# - uploaded CSV
+# - manual input
 
-# 3. Enforce feature schema
+df_processed = preprocess_data(df)
+
 df_processed = df_processed.reindex(
     columns=feature_columns,
     fill_value=0
 )
+
+preds = model.predict(df_processed)
+probs = model.predict_proba(df_processed)[:, 1]
+
+df["RainTomorrow_Pred"] = preds
+df["Rain_Probability"] = probs
+
 
 # 4. Predict
 preds = model.predict(df_processed)
