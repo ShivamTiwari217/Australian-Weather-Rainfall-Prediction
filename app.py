@@ -120,8 +120,6 @@ if isinstance(df_processed, dict):
 elif not isinstance(df_processed, pd.DataFrame):
     df_processed = pd.DataFrame(df_processed)
 
-)
-
 # --------------------------------------------------
 # Predictions
 # --------------------------------------------------
