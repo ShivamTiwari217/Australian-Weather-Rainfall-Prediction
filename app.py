@@ -113,10 +113,13 @@ if df is not None:
 # --------------------------------------------------
 df_processed = preprocess_data(df)
 
-# Enforce training feature schema (single source of truth)
-df_processed = df_processed.reindex(
-    columns=feature_columns,
-    fill_value=0
+# 🔒 Handle dict input (manual form / sample input)
+if isinstance(df_processed, dict):
+    df_processed = pd.DataFrame([df_processed])
+
+elif not isinstance(df_processed, pd.DataFrame):
+    df_processed = pd.DataFrame(df_processed)
+
 )
 
 # --------------------------------------------------
