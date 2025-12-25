@@ -113,13 +113,11 @@ if df is not None:
     # --------------------------------------------------
     df_processed = preprocess_data(df)
 
-    # 🔒 Ensure DataFrame (critical fix)
+    # Ensure DataFrame
     if not isinstance(df_processed, pd.DataFrame):
-        df_processed = pd.DataFrame(
-            df_processed,
-            columns=feature_columns[:df_processed.shape[1]]
-        )
+        df_processed = pd.DataFrame(df_processed)
 
+    # Enforce training feature schema (ONLY source of truth)
     df_processed = df_processed.reindex(
         columns=feature_columns,
         fill_value=0
