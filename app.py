@@ -111,20 +111,22 @@ if df is not None:
 # --------------------------------------------------
 # Preprocess & align features
 # --------------------------------------------------
-df_processed = preprocess_data(df)
+# 1. Convert Streamlit input to DataFrame
+input_df = pd.DataFrame([user_input])
 
-# 🔒 Handle dict input (manual form / sample input)
-if isinstance(df_processed, dict):
-    df_processed = pd.DataFrame([df_processed])
+# 2. Preprocess
+df_processed = preprocess_data(input_df)
 
-elif not isinstance(df_processed, pd.DataFrame):
-    df_processed = pd.DataFrame(df_processed)
+# 3. Enforce feature schema
+df_processed = df_processed.reindex(
+    columns=feature_columns,
+    fill_value=0
+)
 
-# --------------------------------------------------
-# Predictions
-# --------------------------------------------------
+# 4. Predict
 preds = model.predict(df_processed)
 probs = model.predict_proba(df_processed)[:, 1]
+
 
 df["RainTomorrow_Pred"] = preds
 df["Rain_Probability"] = probs
